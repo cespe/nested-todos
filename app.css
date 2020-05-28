@@ -1,0 +1,38 @@
+.struck-completed {
+	/* styles completed todos */
+	color: rgba(0, 0, 0, 0.6);
+	text-decoration: line-through;
+}
+
+.faded-deleted {
+	/* styles deleted todos faded red */
+	color: rgba(255, 0, 0, 0.6);
+}
+
+.parent-placeholder {
+	/* styles filtered-out parents of todos that are not filtered out */
+	/* the removed parent todoLi shows the faded text of its entry but no buttons */
+	color: rgba(0, 0, 0, 0.15);
+}
+
+.highlighted {
+	/* styles selected todos */
+	background-color: rgba(211, 211, 211, 0.5);
+}
+
+li > ul {
+	margin-top: 1em;
+}
+
+/* These last two not currently used */
+
+button[disabled] {
+	/* styles disabled buttons to take up space but not be visible 
+	visibility: hidden; */
+}
+
+.inactive {
+	/* styles inactive buttons to disappear without taking up space */
+	display: none;
+}
+

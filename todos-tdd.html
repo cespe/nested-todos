@@ -1,0 +1,38 @@
+<!-- The test page requires paths to three scripts:-->
+<!--    simpletest, the testing framework -->
+<!--    the code being tested -->
+<!--    the tests -->
+
+<!doctype html>
+<head>
+		<title>Todos with SimpleTest test runner: 
+		</title>
+		<meta charset="utf-8">
+		<link rel="stylesheet" href="app.css">
+</head>
+<body>
+	<aside id="simpletest">
+	</aside>
+	<header>
+		<div id="actions">
+			<button type="button" name="selectAll">Select all</button>
+			<button type="button" disabled="true" name="completeSelected">Complete selected</button>
+			<button type="button" disabled="true" name="deleteSelected">Delete selected</button>
+			<button type="button" disabled="true" name="purgeSelectedDeleted">Purge selected deleted todos</button>
+			Show:
+			<button type="button" name="showActive">√ Active</button>
+			<button type="button" name="showCompleted">√ Completed</button>
+			<button type="button" name="showDeleted">Deleted</button>
+			<button type="button" name="addTodo">Add todo</button>
+		</div>
+	</header>
+	<main id="todolist">
+
+	</main>
+<script src="simpletest.js"></script>
+<script src="app.js"></script>
+<script src="todos-tests.js"></script>
+</body>
+</html>
+
+
