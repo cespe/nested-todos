@@ -1043,7 +1043,7 @@ tests({
 
 	},
 	"An empty todo should be created in editing mode for text entry (close devtools to pass test).": function() {
-		// Devtools must be closed for the focus() tests below to pass.
+		// Devtools must be closed for the focus tests below to pass.
 		todos = [];
 		todo1 = new Todo('Item 1');
 		insertTodo(todos, todo1);
@@ -1089,7 +1089,7 @@ tests({
 		eq(document.hasFocus(), true);
 	},
 	"When editing, losing focus on the todoLi should save the revised entry (close devtools to pass test).": function() {
-		// Devtools must be closed for the tests below to pass.
+		// Devtools must be closed for the focus tests below to pass.
 		todolist.innerHTML = '';
 		todos = [];
 		insertNewTodoLi(todos);
@@ -1839,8 +1839,13 @@ tests({
 		eq(todoLi1UndoEditButton.disabled, true);
 	},
 	"undoEditButton should become enabled when a todoLi entry is edited.": function() {
+		
 		manual();
-		// app code works; TODO need alternative to synthetic key events, which don't trigger code
+
+		// Add a todo. undoEdit button is disabled. Hit a key, button is enabled.
+
+		/*		
+		// Need alternative to synthetic key events, which don't trigger code, to automate this test
 		todos = [];
 		todo1 = new Todo('Item 1');
 		insertTodo(todos, todo1);
@@ -1879,10 +1884,28 @@ tests({
 
 		eq(todoLi2UndoEditButton.disabled, false);
 		eq(todoLi2Entry.textContent, 'Item 2');
+		*/
 	},
-	"undoEditButton should be disabled when an edit is completed.": function() {
+	"undoEditButton should remain enabled until an edit is started on another entry or todolist re-renders.": function() {
+		// By design, you are allowed to undo an edit even if the entry loses focus until
+		// 1) the todolist re-renders or 2) another entry is edited (i.e. fires an input event).
+		// You can click out of entry A, even on to another entry B or C, but until a different entry
+		// is being edited or a button is clicked, the edit to entry A can still be undone.
+
 		manual();
-		// app code works; TODO need alternative to synthetic key events, which don't trigger code
+
+		// Add a todo (Todo A) and enter 'A'. undoEdit button becomes enabled.
+		// Add another todo (Todo B) but do not enter anything. Todo A undoEdit button becomes disabled. Todo B button also disabled.
+		// Enter 'B' in Todo B. Todo B undoEdit button becomes enabled.
+		// Go back and edit todo A. Todo B button becomes disabled. Todo A button enabled.
+		// Click on Todo B entry but do not edit it. Todo A undoEdit button still enabled.
+		// Click outside of entries on body but not on a button. Todo A button still enabled.
+		// Click Todo A undoEdit button. Entry reverts to original 'A'. Todo A undoEdit button text becomes 'Redo edit'.
+		// Click showDeletedButton to re-render. Todo A undoEdit button reads 'Undo edit' and is disabled.
+
+		/*
+		// Need alternative to synthetic key events, which don't trigger code, to automate this test
+		
 		todos = [];
 		todo1 = new Todo('Item 1');
 		insertTodo(todos, todo1);
@@ -1923,9 +1946,18 @@ tests({
 
 		eq(todoLi1UndoEditButton.disabled, false);
 		eq(todoLi1Entry.textContent, 'Item 11');
+		*/
 	},
-	"Clicking undoEditButton should revert text of todo being edited to old version and set undoEditButton disabled.": function() {
+	"Clicking 'Undo edit' button should revert entry to old version and toggle button text to 'Redo edit'.": function() {
+
 		manual();
+
+		// Add a todo. Enter text. Click undoEdit button. Text goes away and undoEdit button reads 'Redo edit'.
+		// The entry loses focus as a consequence of the button click. That is the natural expected behavior.
+
+		/*
+		// Need alternative to synthetic key events, which don't trigger code, to automate this test
+		
 		todos = [];
 		todo1 = new Todo('Item 1');
 		insertTodo(todos, todo1);
@@ -1944,14 +1976,28 @@ tests({
 		todoLi1Entry.textContent = 'Item 11';
 
 		eq(todoLi1UndoEditButton.disabled, false);
+		eq(todoLiUndoEditButton.textContent, 'Undo edit');
 		eq(todoLi1Entry.textContent, 'Item 11');
 
 		todoLi1UndoEditButton.click();
 
-		eq(todoLi1UndoEditButton.disabled, true);
+		eq(todoLi1UndoEditButton.disabled, false);
+		eq(todoLiUndoEditButton.textContent, 'Redo edit');
 		eq(todoLi1Entry.textContent, 'Item 1');
-
-		// TODO should entry still have focus?
+		*/
+	},
+	"Clicking 'Redo edit' button should revert entry to edited version and toggle button text to 'Undo edit'.": function() {
+		// By design, the undoing/re-doing process is cumulative. If you re-do an edit and then add more to the entry,
+		// the redone edit becomes the new baseline for undoing the most recent addition.
+		
+		manual();
+		
+		// Add a todo. Enter text 'Fresh entry'. Click undoEdit button. Text goes away and undoEdit button reads 'Redo edit'.
+		// Click 'Redo edit' button. 'Fresh entry' re-appears. Button toggles back to 'Undo edit'.
+		// Add 'edited again' after 'Fresh entry'. Click 'Undo edit' again. Text reverts to 'Fresh entry' and button to 'Redo edit' 
+		// Click 'Redo edit'. Text goes back to 'Fresh entry edited again'. Button reads 'Undo edit'.
+		// Click 'Undo edit' one last time. Text revers to 'Fresh entry' and button to 'Redo edit'.
+		// Click showDeleted filter button. undoEdit button reads 'Undo edit' and is disabled.
 	},
 	"Each todoLi with children should have a showChildren button to expand/collapse nested todos.": function() {
 		todos = [];
@@ -2034,6 +2080,8 @@ tests({
 		child1 = new Todo('Child 1');
 		grandchild1 = new Todo('Grandchild 1');
 		child1.addChild(grandchild1);
+		greatgrandchild1 = new Todo('Great grandchild 1');
+		grandchild1.addChild(greatgrandchild1);
 		todo1.addChild(child1);
 		insertTodo(todos, todo1);
 
@@ -2052,9 +2100,13 @@ tests({
 		var todoLi1ShowChildrenButton = todoLi1.children.namedItem('showChildren');
 		childLi1 = todoLi1Ul.children[0];
 		var childLi1ShowChildrenButton = childLi1.children.namedItem('showChildren');
+		childLi1Ul = childLi1.querySelector('ul');
+		var grandchildLi1 = childLi1Ul.children[0];
+		var grandchildLi1ShowChildrenButton = grandchildLi1.children.namedItem('showChildren');
 
 		eq(todoLi1ShowChildrenButton.disabled, true);
 		eq(childLi1ShowChildrenButton.disabled, true);
+		eq(grandchildLi1ShowChildrenButton.disabled, true);
 	},
 	"If showChildren button text is 'Show children', app should preserve spacing above the following entry.": function() {
 		// TODO there is probably a better way than just adding an empty <p> element
@@ -2320,12 +2372,17 @@ tests({
 		eq(childLi1SelectChildrenButton.textContent, 'Select children');
 	},
 	"Clicking 'Select children' button should select nested filtered-in todos and re-render todoLis, toggling button text.": function() {
+		// Revised to expose bug where, in the case where some but not all descendants are in select mode,
+		// clicking the select-root-ancestor button would remove descendants from select mode and
+		// set itself and all nested selectChildren buttons to 'Select children'
 		todos = [];
 		todo1 = new Todo('Item 1');
 		child1 = new Todo('Child 1');
 		todo1.addChild(child1);
 		child2 = new Todo('Child 2');
 		todo1.addChild(child2);
+		grandchild2 = new Todo('Grandchild 2');
+		child2.addChild(grandchild2);
 		insertTodo(todos, todo1);
 
 		startTestApp();
@@ -2335,14 +2392,77 @@ tests({
 
 		eq(child1.selected, false);
 		eq(child2.selected, false);
+		eq(grandchild2.selected, false);
+		eq(child1.selectMode, false);
+		eq(child2.selectMode, false);
+		eq(grandchild2.selectMode, false);
 		eq(todoLi1SelectChildrenButton.textContent, 'Select children');
 
 		todoLi1SelectChildrenButton.click();
 		
 		todoLi1 = todolist.children[0].children[0];
+		todoLi1SelectChildrenButton = todoLi1.children.namedItem('selectChildren');
 
 		eq(child1.selected, true);
 		eq(child2.selected, true);
+		eq(grandchild2.selected, true);
+		eq(child1.selectMode, true);
+		eq(child2.selectMode, true);
+		eq(grandchild2.selectMode, true);
+		eq(todoLi1SelectChildrenButton.textContent, 'Unselect children');
+
+		todoLi1SelectChildrenButton.click();		// re-set to starting position
+
+		// test case of clicking a selection-root-ancestor selectChildren button
+		
+		todoLi1 = todolist.children[0].children[0];
+		todoLi1Ul = todoLi1.querySelector('ul');
+		todoLi1SelectChildrenButton = todoLi1.children.namedItem('selectChildren');
+		childLi2 = todoLi1Ul.children[1];
+		childLi2SelectChildrenButton = childLi2.children.namedItem('selectChildren');
+
+		eq(child1.selected, false);
+		eq(child2.selected, false);
+		eq(grandchild2.selected, false);
+		eq(child1.selectMode, false);
+		eq(child2.selectMode, false);
+		eq(grandchild2.selectMode, false);
+		eq(todoLi1SelectChildrenButton.textContent, 'Select children');
+		eq(childLi2SelectChildrenButton.textContent, 'Select children');
+
+		childLi2SelectChildrenButton.click();		// the selection-root button
+		
+		todoLi1 = todolist.children[0].children[0];
+		todoLi1Ul = todoLi1.querySelector('ul');
+		todoLi1SelectChildrenButton = todoLi1.children.namedItem('selectChildren');
+		childLi2 = todoLi1Ul.children[1];
+		childLi2SelectChildrenButton = childLi2.children.namedItem('selectChildren');
+
+		eq(child1.selected, false);
+		eq(child2.selected, false);
+		eq(grandchild2.selected, true);
+		eq(child1.selectMode, false);
+		eq(child2.selectMode, false);
+		eq(grandchild2.selectMode, true);
+		eq(todoLi1SelectChildrenButton.textContent, 'Select children');
+		eq(childLi2SelectChildrenButton.textContent, 'Unselect children');
+
+		todoLi1SelectChildrenButton.click();		// the selection-root-ancestor button
+		
+		todoLi1 = todolist.children[0].children[0];
+		todoLi1Ul = todoLi1.querySelector('ul');
+		todoLi1SelectChildrenButton = todoLi1.children.namedItem('selectChildren');
+		childLi2 = todoLi1Ul.children[1];
+		childLi2SelectChildrenButton = childLi2.children.namedItem('selectChildren');
+
+		eq(child1.selected, true);
+		eq(child2.selected, true);
+		eq(grandchild2.selected, true);
+		eq(child1.selectMode, true);
+		eq(child2.selectMode, true);
+		eq(grandchild2.selectMode, true);
+		eq(todoLi1SelectChildrenButton.textContent, 'Unselect children');
+		eq(childLi2SelectChildrenButton.textContent, 'Unselect children');
 	},
 	"Clicking 'Unselect children' button should unselect nested filtered-in todos and re-render todoLis, toggling button text.": function() {
 		todos = [];
@@ -4796,7 +4916,7 @@ tests({
 		eq(childLi1Entry.classList.contains('faded-deleted'), false);
 	},
 	"Section: Actions bar -- filters": function() {
-		// Choose to display todos based on their stage in life or whether or not they are deleted.
+		// Choose to display todos based on their stage in life (active or completed) and whether or not they are deleted.
 	},
 	"The header actions bar should have a showActive button to toggle the display of active todos.": function() {
 		todos = [];
@@ -5225,7 +5345,114 @@ tests({
 		// Turns out that this is deliberate behavior in Chrome. Safari and Firefox both unselect the buttons after
 		// they are clicked.
 
-		remove();
+		future();
+	},
+	"The app should display todos according to the filter settings.": function() {
+		// There are three buttons: Active, Completed, and Deleted.
+		// Each can be checked (meaning activated) or unchecked (meaning deactivated), giving eight combinations.
+		// | √ Active | √ Completed | √ Deleted |	Show all todos
+		// | √ Active |   Completed |   Deleted |	Show active todos that are not deleted
+		// |   Active | √ Completed |   Deleted |	Show completed todos that are not deleted
+		// |   Active |   Completed | √ Deleted |	Show deleted todos only regardless of lifecycle stage
+		// | √ Active | √ Completed |   Deleted |	Show todos that are active or completed
+		// | √ Active |   Completed | √ Deleted |	Show todos that are active or deleted (including deleted completed)
+		// |   Active | √ Completed | √ Deleted |	Show todos that are completed or deleted (including deleted active)
+		// |   Active |   Completed |   Deleted |	Show no todos
+		// 
+		// Active and Completed are mutually exclusive because they are lifecycle stages, but either can combine with Deleted.
+		// Therefore, there are only four todo combinations to test:
+		//		Active not deleted
+		//		Active deleted
+		//		Completed not deleted
+		//		Completed deleted
+
+		todos = [];
+		todo1 = new Todo('1. Active not deleted');
+		todo2 = new Todo('2. Active deleted');
+		todo2.markDeleted(true);
+		todo3 = new Todo('3. Completed not deleted');
+		todo3.setStage('completed');
+		todo4 = new Todo('4. Completed deleted');
+		todo4.setStage('completed');
+		todo4.markDeleted(true);
+		insertTodo(todos, todo1);
+		insertTodo(todos, todo2);
+		insertTodo(todos, todo3);
+		insertTodo(todos, todo4);
+
+		startTestApp();
+
+		// | √ Active | √ Completed | √ Deleted |	Show all todos
+		showDeletedButton.click();
+
+		eq(todo1.filteredIn, true);
+		eq(todo2.filteredIn, true);
+		eq(todo3.filteredIn, true);
+		eq(todo4.filteredIn, true);
+
+		// | √ Active |   Completed |   Deleted |	Show active todos that are not deleted
+		showDeletedButton.click();
+		showCompletedButton.click();
+
+		eq(todo1.filteredIn, true);
+		eq(todo2.filteredIn, false);
+		eq(todo3.filteredIn, false);
+		eq(todo4.filteredIn, false);
+
+		// |   Active | √ Completed |   Deleted |	Show completed todos that are not deleted
+		showActiveButton.click();
+		showCompletedButton.click();
+
+		eq(todo1.filteredIn, false);
+		eq(todo2.filteredIn, false);
+		eq(todo3.filteredIn, true);
+		eq(todo4.filteredIn, false);
+
+		// |   Active |   Completed | √ Deleted |	Show deleted todos only regardless of lifecycle stage
+		showCompletedButton.click();
+		showDeletedButton.click();
+
+		eq(todo1.filteredIn, false);
+		eq(todo2.filteredIn, true);
+		eq(todo3.filteredIn, false);
+		eq(todo4.filteredIn, true);
+
+		// | √ Active | √ Completed |   Deleted |	Show todos that are active or completed
+		showActiveButton.click();
+		showCompletedButton.click();
+		showDeletedButton.click();
+
+		eq(todo1.filteredIn, true);
+		eq(todo2.filteredIn, false);
+		eq(todo3.filteredIn, true);
+		eq(todo4.filteredIn, false);
+
+		// | √ Active |   Completed | √ Deleted |	Show todos that are active or deleted (including deleted completed)
+		showCompletedButton.click();
+		showDeletedButton.click();
+
+		eq(todo1.filteredIn, true);
+		eq(todo2.filteredIn, true);
+		eq(todo3.filteredIn, false);
+		eq(todo4.filteredIn, true);
+
+		// |   Active | √ Completed | √ Deleted |	Show todos that are completed or deleted (including deleted active)
+		showActiveButton.click();
+		showCompletedButton.click();
+
+		eq(todo1.filteredIn, false);
+		eq(todo2.filteredIn, true);
+		eq(todo3.filteredIn, true);
+		eq(todo4.filteredIn, true);
+
+		// |   Active |   Completed |   Deleted |	Show no todos
+		showCompletedButton.click();
+		showDeletedButton.click();
+
+		eq(todo1.filteredIn, false);
+		eq(todo2.filteredIn, false);
+		eq(todo3.filteredIn, false);
+		eq(todo4.filteredIn, false);
 	},
 	"Bug fix: unchecking '√ Active' should show completed and deleted children of an active parent.": function() {
 		// markFilteredIn was not setting filteredIn true for active deleted todos when active was filtered out
@@ -5544,6 +5771,11 @@ tests({
 	"When editing, Esc should be a shortcut for 'Undo Edit'.": function() {
 		manual();
 	},
+	"Toggling 'Undo/Redo edit' with 'esc' puts cursor at beginning of entry; app should move it to the end.": function() {
+		// There is HTMLInputElement.setSelectionRange() but it doesn't seem to work on a contenteditable <p>. 
+		future();
+		// Add a todo. Enter 'Fresh entry'. Hit esc twice. 'Fresh entry' should be there with cursor at the end.
+	},
 	"Esc should apply only to the current todoLi entry.": function() {
 		// There was a bug such that Esc would restore originalEntry from the wrong todoLi.
 		// Fixed by adding a check on undoEdit button.
@@ -5667,6 +5899,25 @@ tests({
 		var stored = JSON.parse(localStorage.getItem('test-todos'));
 
 		eq(stored[0].id, todo1.id);
+		eq(stored[0].stage, todo1.stage);
+		eq(todo1.stage, 'active');
+
+		todo1Li = todolist.children[0].children[0];
+		todo1LiCompleteButton = todo1Li.children.namedItem('complete');
+
+		todo1LiCompleteButton.click();
+
+		var stored = JSON.parse(localStorage.getItem('test-todos'));
+
+		eq(stored[0].id, todo1.id);
+		eq(stored[0].stage, todo1.stage);
+		eq(todo1.stage, 'completed');
+	},
+	"Edited entries should also be saved to localStorage when they lose focus.": function() {
+		// Targets a bug whereby an edited entry was not saved unless/until there wasw a re-render.
+
+		manual();
+		// Create a todo, edit its entry, reload page. Edited entry should survive the reload.
 	},
 	"On page load, saved todos should be retrieved from localStorage.": function() {
 		todolist.innerHTML = '';
@@ -5848,5 +6099,7 @@ tests({
 		localStorage.removeItem('test-todos-filters');
 		todos = [];
 		startApp('test-todos');
-	},
+	}
 });
+
+startApp('saved-todos');

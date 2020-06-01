@@ -589,16 +589,17 @@ var actionsBar = document.getElementById('actions');
 var selectAllButton = actionsBar.children.namedItem('selectAll');
 var completeSelectedButton = actionsBar.children.namedItem('completeSelected');
 var deleteSelectedButton = actionsBar.children.namedItem('deleteSelected');
+var purgeSelectedDeletedButton = actionsBar.children.namedItem('purgeSelectedDeleted');
+var addTodoButton = actionsBar.children.namedItem('addTodo');
 var showActiveButton = actionsBar.children.namedItem('showActive');
 var showCompletedButton = actionsBar.children.namedItem('showCompleted');
 var showDeletedButton = actionsBar.children.namedItem('showDeleted');
-var purgeSelectedDeletedButton = actionsBar.children.namedItem('purgeSelectedDeleted');
-var addTodoButton = actionsBar.children.namedItem('addTodo');
 
 var todolist = document.getElementById('todolist');
 
 // Global variables for todo entry being edited
-var originalEntry = undefined;		// entry to be restored by undoEdit	
+var originalEntry = undefined;		// entry to be restored by 'Undo edit'	
+var changedEntry = undefined;		// entry to be restored by 'Redo edit'
 var oldUndoEditButton = undefined;	// button to deactivate from last todoLi to be edited
 
 // A set to specify which todos will be displayed
@@ -706,6 +707,9 @@ function createTodoLi(todo) {
 	var todoLi = document.createElement('li');
 	todoLi.id = todo.id;
 
+	// A line to visually separate todos during development
+	var todoSeparator = document.createElement('hr');
+
 	// All these buttons are created with button.type = 'button' to distinguish from a submit
 	// or reset button, as recommended by MDN.
 
@@ -766,7 +770,8 @@ function createTodoLi(todo) {
 		addSiblingButton.disabled = true;
 		addChildButton.disabled = true;
 	}
-		
+	
+	todoLi.appendChild(todoSeparator);
 	todoLi.appendChild(selectButton);
 	todoLi.appendChild(completeButton);
 	todoLi.appendChild(deleteButton);
@@ -822,7 +827,7 @@ function createTodoLi(todo) {
 		} else {
 			showChildrenButton.textContent = 'Hide children';
 		}
-		if (selectModeRoot || rootAncestor) {
+		if (selectModeRoot || rootAncestor || rootDescendant) {
 			showChildrenButton.disabled = true;
 		}
 		todoLi.appendChild(showChildrenButton);
@@ -939,9 +944,20 @@ function undoEntryEdit(todo, todoLi) {
 	var todoLiEntry = todoLi.querySelector('p');
 	var todoLiUndoEditButton = todoLi.children.namedItem('undoEdit');
 	
-	todo.entry = originalEntry;
-	todoLiEntry.textContent = originalEntry;
-	todoLiUndoEditButton.disabled = true;
+	if (todoLiUndoEditButton.textContent === 'Undo edit') {
+		changedEntry = todoLiEntry.textContent;		// must be todoLiEntry instead of todo.entry because it is
+													// not updated in time from the in-focus entry field
+													// when the keyboard shortcut 'esc' is the trigger
+		todo.entry = originalEntry;
+		todoLiEntry.textContent = originalEntry;
+//		todoLiUndoEditButton.disabled = true;
+		todoLiUndoEditButton.textContent = 'Redo edit';
+	} else {	// 'Redo edit' clicked
+		todo.entry = changedEntry;
+		todoLiEntry.textContent = changedEntry;
+		todoLiUndoEditButton.textContent = 'Undo edit';
+	}
+	writeTodosToStorage(storageKey);
 }
 
 /************************************* Event handling ***********************************/
@@ -965,9 +981,7 @@ function keyUpHandler(event) {
 		var todo = findTodo(todos, todoLi.id);
 		var todoArray = findArray(todos, todo.id);
 		if (event.key === "Enter") {
-			if (todo.entry != editedEntry) {
-				todo.update(editedEntry);				// Must update entry before re-rendering
-			}
+			todo.update(editedEntry);				// Must update entry before re-rendering
 			if (event.shiftKey) {
 				if (todo.selectMode === false && showActiveButton.textContent === '√ Active') {
 					appendNewChildTodoLi(todo)			// Shift-return appends a new child todo
@@ -980,9 +994,7 @@ function keyUpHandler(event) {
 		} else if (event.key === "Escape") {
 			var todoLiUndoEditButton = todoLi.children.namedItem('undoEdit');
 			if (todoLiUndoEditButton.disabled === false) /* prevent restoring the wrong entry */ {
-				undoEntryEdit(todo, todoLi);
-				var todoLiEntry = todoLi.querySelector('p');
-				todoLiEntry.blur();						// Blur matches result of clicking undoEditButton
+				undoEntryEdit(todo, todoLi);			// esc reverts/restores an edited entry
 			}
 		}
 	}
@@ -997,14 +1009,17 @@ function inputHandler(event) {
 		var todoLiEntry = todoLi.querySelector('p');
 		var todo = findTodo(todos, todoLi.id);
 		
-		// Set global undoEdit variables created earlier
-
+		// Save current entry in global variable so change can be undone
 		originalEntry = todo.entry;
 		
+		// There should only be one undoEditButton enabled at a time. If there was an edit going on before 
+		// this one, then its undoEdit button needs to be disabled and text restored to default.
 		if (oldUndoEditButton) {
-			oldUndoEditButton.disabled = true;	// only want one undoEditButton at a time
+			oldUndoEditButton.disabled = true;	
+			oldUndoEditButton.textContent = 'Undo edit';
 		}
 		todoLiUndoEditButton.disabled = false;
+		// Save button reference to global variable so it can be disabled when a new entry edit starts.	
 		oldUndoEditButton = todoLiUndoEditButton;
 	}
 }
@@ -1016,9 +1031,8 @@ function editHandler(event) {
 		var todoLi = event.target.parentElement;
 		var editedEntry = event.target.textContent;
 		var todo = findTodo(todos, todoLi.id);
-		if (todo.entry !== editedEntry) {
-			todo.update(editedEntry);
-		}
+		todo.update(editedEntry);
+		writeTodosToStorage(storageKey);
 	}
 }
 
@@ -1050,7 +1064,7 @@ function todoClickHandler(event) {
 		renderTodolist();
 
 	} else if (event.target.name === "addSibling") {
-		insertNewTodoLi(todoArray, todo)			// todoArray and todo are set above by clickHandler
+		insertNewTodoLi(todoArray, todo)
 
 	} else if (event.target.name === "addChild") {
 		appendNewChildTodoLi(todo)
@@ -1064,20 +1078,21 @@ function todoClickHandler(event) {
 		renderTodolist();
 
 	} else if (event.target.name === "selectChildren") {
-		if (anySelectedTodos(todo.children)) {
-			// 'Unselect children' clicked
+		var todoLiSelectChildrenButton = todoLi.children.namedItem('selectChildren');
+
+		if (todoLiSelectChildrenButton.textContent === 'Unselect children') {
 			markFilteredInTodosSelected(todo.children, false);
 			if (!todo.selectMode) {
-				// select-mode-root button clicked, remove selectMode flag so normal buttons are restored
+				// button is select-mode-root, remove selectMode flags to restore normal buttons
 				markTodosSelectMode(todo.children, false);
-			} else /* root-descendant button clicked */ {
-				leaveSelectModeIfNoneSelected(todo);
+			} else {
+				// button is select-mode-root-descendant
+				leaveSelectModeIfNoneSelected(todo)
 			}
-		} else {
-			// 'Select children' clicked
+		} else {	// 'Select children' clicked
 			markFilteredInTodosSelected(todo.children, true);
 			if (!todo.selectMode) {
-				// select-mode-root button clicked, set selectMode flag so normal buttons are disabled 
+				// button is select-mode-root, set selectMode flags so normal buttons are disabled
 				markTodosSelectMode(todo.children, true);
 			}
 		}
@@ -1170,7 +1185,8 @@ function actionsClickHandler(event) {
 }
 
 function setUpEventListeners() {
-	todolist.addEventListener('focusout', editHandler);		// using focusout event instead of change event
+	todolist.addEventListener('focusout', editHandler);		// using focusout event instead of change event,
+															// which does not work on a contenteditable <p>
 	todolist.addEventListener('click', todoClickHandler);
 	actionsBar.addEventListener('click', actionsClickHandler);
 	todolist.addEventListener('input', inputHandler);
