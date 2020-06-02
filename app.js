@@ -18,6 +18,7 @@ function Todo(entry) {
 		this.id = entry.id;
 		this.children = entry.children;
 		this.collapsed = entry.collapsed;
+		this.hidden = entry.hidden;
 		this.deleted = entry.deleted;
 		this.stage = entry.stage;
 		this.selected = entry.selected;
@@ -33,6 +34,7 @@ function Todo(entry) {
 		this.id = Math.random().toString(36).slice(2);
 		this.children = [];
 		this.collapsed = false;							// flag to manage showing or hiding nested todos
+		this.hidden = false;							// true if descended from a collapsed children array
 		this.deleted = false;							// flag to enable undelete
 		this.stage = 'active';							// new todo starts out active
 	
@@ -73,6 +75,9 @@ Todo.prototype.addChild = function(child) {
 }
 Todo.prototype.markCollapsed = function(bool) {
 	this.collapsed = bool;
+}
+Todo.prototype.markHidden = function(bool) {
+	this.hidden = bool;
 }
 Todo.prototype.markFilteredIn = function(filterSet) {
 	this.filteredIn = false;
@@ -154,6 +159,25 @@ function applyDisplayTags(filterSet) {
 	markFilteredInTodos(todos);
 }
 
+// Recursively mark todo.hidden true or false, starting with given array
+function markHiddenTodos(todosArray, collapsedFlag) {
+	for (var i = 0; i < todosArray.length; i++) {
+		var todo = todosArray[i];
+		if (todo.children.length > 0) {
+			if (collapsedFlag) {
+				markHiddenTodos(todo.children, collapsedFlag);		// preserves higher-level collapse
+			} else {
+				markHiddenTodos(todo.children, todo.collapsed);
+			}
+		}
+		if (todosArray === todos) {
+			todo.hidden = false;		// top-level todos cannot be hidden
+		} else {
+			todo.hidden = collapsedFlag;
+		}
+	}
+}
+
 // Recursively mark todo.selectMode true or false, starting with given array
 function markTodosSelectMode(todosArray, bool) {
 	for (var i = 0; i < todosArray.length; i++) {
@@ -165,17 +189,17 @@ function markTodosSelectMode(todosArray, bool) {
 	}
 }
 
-// Recursively mark todo.selected true or false for filtered-in todos, starting with given array
+// Recursively mark todo.selected true or false for filtered-in displayed todos, starting with given array
 function markFilteredInTodosSelected(todosArray, bool) {
 	for (var i = 0; i < todosArray.length; i++) {
 		var todo = todosArray[i];
 		if (todo.children.length > 0) {
 			markFilteredInTodosSelected(todo.children, bool);
 		}
-		if (todo.filteredIn) {
+		if (todo.filteredIn && !todo.hidden) {
 			todo.selected = bool;
 		} else {
-			todo.selected = false;				// excludes filtered-out todos
+			todo.selected = false;				// excludes filtered-out todos and hidden todos
 		}
 	}
 }
@@ -623,7 +647,8 @@ function renderTodolist() {
 
 	var filterSet = generateFilterSet();	// set which filters determine display
 
-	applyDisplayTags(filterSet);			// mark todos for display
+	applyDisplayTags(filterSet);			// mark todos for display if they are filtered in
+	markHiddenTodos(todos);					// and not hidden by a collapsed children array
 
 	newTodolist = createTodosUl(todos);
 	updateActionsBar();
