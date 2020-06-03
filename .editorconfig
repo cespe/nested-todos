@@ -1,0 +1,10 @@
+# https://editorconfig.org
+
+# this is the top-most editorconfig file in the repo
+root = true
+
+[*.js]
+charset = utf-8
+indent_style = tab
+indent_size = 4
+
